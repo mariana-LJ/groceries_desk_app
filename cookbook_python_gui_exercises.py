@@ -3,6 +3,53 @@ from tkinter import ttk
 from tkinter import scrolledtext
 from tkinter import Menu
 from tkinter import messagebox as mBox
+from tkinter import Spinbox
+
+class ToolTip(object):
+    def __init__(self, widget):
+        self.widget = widget
+        self.tipwindow = None
+        self.id = None
+        self.x = self.y = 0
+    
+    def showtip(self, text):
+        "Display text in tooltip window"
+        self.text = text
+        if self.tipwindow or not self.text:
+            return
+        print(self.widget.bbox("insert"))
+        print(type(self.widget.bbox("insert")))
+        x, y, cx, cy = self.widget.bbox("insert").split()
+        x = int(x)
+        y = int(y)
+        cx = int(cx)
+        cy = int(cy)
+        x = x + self.widget.winfo_rootx() + 27
+        y = y + cy + self.widget.winfo_rooty() +27
+        self.tipwindow = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(1)
+        tw.wm_geometry("+%d+%d" % (x, y))
+
+        label = tk.Label(tw, text=self.text, justify=tk.LEFT,
+                      background="#ffffe0", relief=tk.SOLID, borderwidth=1,
+                      font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+                
+    def hidetip(self):
+        tw =self.tipwindow
+        self.tipwindow = None
+        if tw:
+            tw.destroy()
+
+
+def createToolTip(widget, text):
+    toolTip = ToolTip(widget)
+    def enter(event):
+        toolTip.showtip(text)
+    def leave(event):
+        toolTip.hidetip()
+    widget.bind('<Enter>', enter)
+    widget.bind('<Leave>', leave)
 
 win = tk.Tk()
 win.title("Python GUI")
@@ -96,6 +143,24 @@ for col in range(3):
 	curRad = tk.Radiobutton(monty2, text=colors[col], variable=radVar, value=col, command=radCall)
 	curRad.grid(column=col, row=5, sticky=tk.W)
 
+# Spinbox callback
+def _spin():
+    value = spin.get()
+    print(value)
+    scr.insert(tk.INSERT, value + '\n')
+
+# Adding a Spinbox widget
+# spin = Spinbox(monty, from_=0, to=10, width=5, bd=8, command=_spin)
+# Adding a Spinbox widget using a set of values
+spin = Spinbox(monty, values=(1, 2, 4, 42, 100), width=5, bd=8, command=_spin)
+spin.grid(column=0, row=2)
+# Adding a second Spinbox widget
+spin2 = Spinbox(monty, values=(0, 50, 100), width=5, bd=8, relief=tk.RAISED, command=_spin)
+spin2.grid(column=1, row=2)
+
+# Add a tooltip
+createToolTip(spin, 'This is a Spin control.')
+
 # Using a sccrolled text control
 scrolW = 30
 scrolH = 3
@@ -139,11 +204,15 @@ def _msgBox():
 	# Warning box
 	# mBox.showwarning('Python Message Warning Box', 'A Python GUI created using tkinter: \nWarning: There might be a bug in this code.')
 	# Error box
-	mBox.showerror('Python Message Warning Box', 'A Python GUI created using tkinter:\nError: Houston we DO have a serious PROBLEM!')
-
+	# mBox.showerror('Python Message Warning Box', 'A Python GUI created using tkinter:\nError: Houston we DO have a serious PROBLEM!')
+    answer = mBox.askyesno("Python Message Dual Choice Box", "Are you sure you really wish to do this?")
+    print(answer)
 
 helpMenu = Menu(menuBar, tearoff=0)
 helpMenu.add_command(label="About", command=_msgBox)
 menuBar.add_cascade(label="Help", menu=helpMenu)
+
+# Change the main windows icon
+# win.iconbitmap(r'/usr/bin/python3/icon/path')
 
 win.mainloop()
