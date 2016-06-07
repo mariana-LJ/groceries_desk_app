@@ -1,24 +1,89 @@
+import time
 import tkinter as tk
+
+import Queues as qs
 import Tooltip as tt
-from tkinter import ttk
-from tkinter import scrolledtext
+import URL as url
+
+from queue import Queue
+from os import makedirs
+from os import path
+from socketserver import BaseRequestHandler, TCPServer
+from threading import Thread
+from tkinter import filedialog as fd
 from tkinter import Menu
 from tkinter import messagebox as mBox
+from tkinter import scrolledtext
 from tkinter import Spinbox
+from tkinter import ttk
+
+# Module level GLOBALS
+GLOBAL_CONST = 42
+fDir = path.dirname(__file__)
+netDir = fDir + '\\Backup'
+if not path.exists(netDir):
+    makedirs(netDir, exist_ok=True)
+
+
+class RequestHandler(BaseRequestHandler):
+    # override base class handle method
+    def handle(self):
+        print('Server connected to: ', self.client_address)
+        while True:
+            rsp = self.request.recv(512)
+            if not rsp:
+                break
+            self.request.send(b'Server received: ' + rsp)
+
+
+def startServer():
+    serv = TCPServer(('', 24000), RequestHandler)
+    serv.serve_forever()
 
 
 class OOP():
+
     def __init__(self):
+        # Start TCP/IP server in its own thread
+        svrT = Thread(target=startServer, daemon=True)
+        svrT.start()
+        # Create a Queue
+        self.guiQueue = Queue()
         # Create instance
         self.win = tk.Tk()
         # Add a title
         self.win.title("Python GUI")
         self.createWidgets()
+        self.defaultFileEntries()
+
+    def methodInAThread(self, numOfLoops=10):
+        for idx in range(numOfLoops):
+            time.sleep(1)
+            self.scr.insert(tk.INSERT, str(idx) + '\n')
+            time.sleep(1)
+
+    def defaultFileEntries(self):
+        self.fileEntry.delete(0, tk.END)
+        self.fileEntry.insert(0, fDir)
+        if len(fDir) > self.entryLen:
+            self.fileEntry.config(width=len(fDir) + 3)
+            self.fileEntry.config(state='readonly')
+
+        self.netwEntry.delete(0, tk.END)
+        self.netwEntry.insert(0, netDir)
+        if len(netDir) > self.entryLen:
+            self.netwEntry.config(width=len(netDir) + 3)
 
     # Button Click event callback function
     def clickMe(self):
-        self.action.configure(text='Hello ' + self.name.get()+ ' ' + self.numberChosen.get())
+        #self.action.configure(text='Hello ' + self.name.get()+ ' ' + self.numberChosen.get())
         # aLabel.configure(foreground='red')
+        # self.createThread(8)
+        qs.writeToScrol(self)
+        time.sleep(2)
+        htmlData = url.getHtml()
+        print(htmlData)
+        self.scr.insert(tk.INSERT, htmlData)
 
     # Radiobutton callback
     def radCall(self):
@@ -87,15 +152,18 @@ class OOP():
 
         # Adding a textbox entry widget
         self.name = tk.StringVar()
-        self.nameEntered = ttk.Entry(self.monty, width=12, textvariable=self.name)
+        self.nameEntered = ttk.Entry(self.monty, width=24, textvariable=self.name)
         self.nameEntered.grid(column=0, row=1, sticky=tk.W)
+        self.nameEntered.delete(0, tk.END)
+        self.nameEntered.insert(0, '< default name>')
         # Place cursor into name Entry
-        self.nameEntered.focus()
+        #self.nameEntered.focus()
+        self.tabControl.select(1)
 
         # Adding combo box widgets
         ttk.Label(self.monty, text="Choose a number: ").grid(column=1, row=0)
         self.number = tk.StringVar()
-        self.numberChosen = ttk.Combobox(self.monty, width=12, textvariable=self.number, state='readonly')
+        self.numberChosen = ttk.Combobox(self.monty, width=14, textvariable=self.number, state='readonly')
         self.numberChosen['values'] = (1, 2, 4, 42, 100)
         self.numberChosen.grid(column=1, row=1)
         self.numberChosen.current(0)
@@ -138,14 +206,11 @@ class OOP():
         self.spin2 = Spinbox(self.monty, values=(0, 50, 100), width=5, bd=8, relief=tk.RAISED, command=self._spin)
         self.spin2.grid(column=1, row=2)
 
-        # Add a tooltip
-        tt.createToolTip(self.spin, 'This is a Spin control.')
-
         # Using a sccrolled text control
-        self.scrolW = 30
-        self.scrolH = 3
+        self.scrolW = 40
+        self.scrolH = 10
         self.scr = scrolledtext.ScrolledText(self.monty, width=self.scrolW, height=self.scrolH, wrap=tk.WORD)
-        self.scr.grid(column=0, sticky='WE', columnspan=3)
+        self.scr.grid(column=0, row=3, sticky='W', columnspan=3)
 
         # Create a container to hold labels
         self.labelsFrame = ttk.LabelFrame(self.monty2, text=' Labels in a Frame ')
@@ -178,6 +243,83 @@ class OOP():
 
         # Change the main windows icon
         # win.iconbitmap(r'/usr/bin/python3/icon/path')
+
+        # Add a tooltip
+        tt.createToolTip(self.spin, 'This is a Spin control.')
+
+        # Add tooltips for more widgets
+        tt.createToolTip(self.nameEntered, 'This is an entry control.')
+        tt.createToolTip(self.action, 'This is a button control.')
+        tt.createToolTip(self.scr, 'This is a scrolled text control.')
+
+        ###################################################################
+        # Create Manage Files Frame
+        mngFilesFrame = ttk.LabelFrame(self.tab2, text='Manage Files: ')
+        mngFilesFrame.grid(column=0, row=1, sticky='WE', padx=10, pady=5)
+
+        # Button Callback
+        def getFilename():
+            print('hello from getFileName')
+            fDir = path.dirname(__file__)
+            fName = fd.askopenfilename(parent=self.win, initialdir=fDir)
+
+        # Add widgets to manage files frame
+        lb = ttk.Button(mngFilesFrame, text="Browse to File...", command=getFilename)
+        lb.grid(column=0, row=0, sticky=tk.W)
+
+        file = tk.StringVar()
+        self.entryLen = self.scrolW
+        self.fileEntry = ttk.Entry(mngFilesFrame, width=self.entryLen, textvariable=file)
+        self.fileEntry.grid(column=1, row=0, sticky=tk.W)
+
+        logDir = tk.StringVar()
+        self.netwEntry =ttk.Entry(mngFilesFrame, width=self.entryLen, textvariable=logDir)
+        self.netwEntry.grid(column=1, row=1, sticky=tk.W)
+
+        def copyFile():
+            import shutil
+            src = self.fileEntry.get()
+            file = src.split('/')[-1]
+            dest = self.netwEntry.get() + '\\' + file
+            try:
+                shutil.copy(src, dest)
+                mBox.showinfo('Copy File to Network', 'Success: File copied.')
+            except FileNotFoundError as err:
+                mBox.showerror('Copy File to Network', '*** Failed to copy file! **\n\n' + str(err))
+            except Exception as ex:
+                mBox.showerror('Copy File to Network', '*** Failed to copy file! **\n\n' + str(ex))
+
+        cb = ttk.Button(mngFilesFrame, text="Copy File to: ", command=copyFile)
+        cb.grid(column=0, row=1, sticky=tk.E)
+
+        # Add some space around each label
+        for child in mngFilesFrame.winfo_children():
+            child.grid_configure(padx=6, pady=6)
+
+    # Running methods in Threads
+    def createThread(self, num):
+        self.runT = Thread(target=self.methodInAThread, args=[num])
+        self.runT.setDaemon(True)
+        self.runT.start()
+
+        # textBoxes are the Consumers of Queue data
+        writeT = Thread(target=self.useQueues, daemon=True)
+        writeT.start()
+
+    # Create queue instances
+    def useQueues(self):
+        # guiQueue = Queue()  # create queue instance
+        # print(guiQueue)
+        #for idx in range(10):
+            #guiQueue.put('Message from a queue: ' + str(idx))
+
+        #while True:
+            #print(guiQueue.get())
+
+        # Now using a class memeber Queue
+        while True:
+            print(self.guiQueue.get())
+
 
 
 # =========================
